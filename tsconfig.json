@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+      "target": "ES2022",                                  /* Use the latest ECMAScript version for modern features. */
+      "module": "NodeNext",                                  /* Enable ES Module syntax. */
+      "moduleResolution": "nodenext",                         /* Resolve modules in Node.js style. */
+      "rootDir": "./src",                                  /* Specify the root directory of source files. */
+      "outDir": "./dist",                                  /* Output directory for compiled files. */
+      "strict": true,                                      /* Enable strict type-checking options. */
+      "esModuleInterop": true,                             /* Add compatibility for CommonJS modules. */
+      "forceConsistentCasingInFileNames": true,            /* Enforce consistent file name casing for imports. */
+      "skipLibCheck": true,                                /* Skip type-checking declaration files for faster builds. */
+      "sourceMap": true,                                   /* Generate source maps for debugging. */
+      "allowSyntheticDefaultImports": true,               /* Allow default imports for modules without default exports. */
+      "resolveJsonModule": true,                           /* Enable importing JSON files. */
+      "allowJs": false,                                    /* Exclude JavaScript files from compilation. */
+      "noImplicitAny": true,                               /* Disallow variables without explicit types. */
+      "isolatedModules": true                              /* Ensure each file can be transpiled independently. */
+    },
+    "include": ["src"],                                    /* Include files in the `src` folder. */
+    "exclude": ["node_modules", "dist"]                   /* Exclude unnecessary files and folders. */
+}
