@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeleteUser = exports.EditUser = exports.AddUser = exports.GetSingleUserByID = exports.GetAllUser = void 0;
+exports.LoginUser = exports.DeleteUser = exports.EditUser = exports.AddUser = exports.GetSingleUserByID = exports.GetAllUser = void 0;
 const client_1 = require("@prisma/client");
 const AppError_1 = require("../utils/AppError");
 const bcrypt_1 = require("../utils/bcrypt");
@@ -190,4 +190,21 @@ const DeleteUser = async (req, res, next) => {
     }
 };
 exports.DeleteUser = DeleteUser;
+const LoginUser = async (req, res, next) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            return next(new AppError_1.AppError("Unauthorized access", 401));
+        }
+        res.status(200).json({
+            status: "success",
+            message: "User details fetched successfully",
+            user, // Send the user details
+        });
+    }
+    catch (error) {
+        next(new AppError_1.AppError("Internal server error", 500));
+    }
+};
+exports.LoginUser = LoginUser;
 //# sourceMappingURL=UserController.js.map

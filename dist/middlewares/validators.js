@@ -18,4 +18,4 @@ const validateUserUpdate = (req, res, next) => {
     next();
 };
 exports.validateUserUpdate = validateUserUpdate;
-//# sourceMappingURL=validators.js.map
+//# sourceMappingURL=Validators.js.map

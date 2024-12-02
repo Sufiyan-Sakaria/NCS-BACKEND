@@ -6,11 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const UserRoutes_1 = __importDefault(require("./UserRoutes"));
 const AuthRoutes_1 = __importDefault(require("./AuthRoutes"));
-const Authentication_1 = require("../middlewares/Authentication");
+const Authenticate_1 = require("../middlewares/Authenticate");
 const router = (0, express_1.Router)();
 // Auth Routes
 router.use("/auth", AuthRoutes_1.default);
 // User Routes
-router.use("/users", Authentication_1.authenticate, UserRoutes_1.default);
+router.use("/users", Authenticate_1.authenticate, UserRoutes_1.default);
 exports.default = router;
 //# sourceMappingURL=index.js.map

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AppError } from "../utils/AppError";
 import { hashPassword } from "../utils/bcrypt";
+import { CustomRequest } from "../types/UserType";
 
 const prisma = new PrismaClient();
 
@@ -221,5 +222,26 @@ export const DeleteUser = async (
     next(new AppError("Internal server error", 500));
   } finally {
     await prisma.$disconnect();
+  }
+};
+
+export const LoginUser = async (
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return next(new AppError("Unauthorized access", 401));
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "User details fetched successfully",
+      user, // Send the user details
+    });
+  } catch (error: any) {
+    next(new AppError("Internal server error", 500));
   }
 };

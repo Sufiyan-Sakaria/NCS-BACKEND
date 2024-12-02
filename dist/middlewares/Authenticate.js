@@ -37,4 +37,4 @@ const authenticate = async (req, res, next) => {
     }
 };
 exports.authenticate = authenticate;
-//# sourceMappingURL=Authentication.js.map
+//# sourceMappingURL=Authenticate.js.map

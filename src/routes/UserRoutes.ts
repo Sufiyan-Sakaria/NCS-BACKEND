@@ -5,10 +5,14 @@ import {
   EditUser,
   DeleteUser,
   AddUser,
+  LoginUser,
 } from "../controllers/UserController";
-import { validateUserID, validateUserUpdate } from "../middlewares/validators";
+import { validateUserID, validateUserUpdate } from "../middlewares/Validators";
 
 const router = Router();
+
+// Fetch Login User Details
+router.get("/me", LoginUser);
 
 // Fetch all users
 router.get("/all", GetAllUser);

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import UserRoutes from "./UserRoutes";
 import AuthRoutes from "./AuthRoutes";
-import { authenticate } from "../middlewares/Authentication";
+import { authenticate } from "../middlewares/Authenticate";
 
 const router = Router();
 
@@ -9,6 +9,6 @@ const router = Router();
 router.use("/auth", AuthRoutes);
 
 // User Routes
-router.use("/users", authenticate, UserRoutes);
+router.use("/users",authenticate, UserRoutes);
 
 export default router;
