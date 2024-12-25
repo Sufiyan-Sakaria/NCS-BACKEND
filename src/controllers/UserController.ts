@@ -16,8 +16,7 @@ export const GetAllUser = async (
     const users = await prisma.users.findMany({
       select: {
         id: true,
-        firstname: true,
-        lastname: true,
+        username: true,
         email: true,
         role: true,
         createdAt: true,
@@ -53,8 +52,7 @@ export const GetSingleUserByID = async (
       where: { id: parseInt(id) },
       select: {
         id: true,
-        firstname: true,
-        lastname: true,
+        username: true,
         email: true,
         role: true,
         createdAt: true,
@@ -84,13 +82,13 @@ export const AddUser = async (
   next: NextFunction
 ) => {
   try {
-    const { firstname, lastname, email, password, role } = req.body;
+    const { username, email, password, role } = req.body;
 
     // Validate required fields
-    if (!firstname || !lastname || !email || !password) {
+    if (!username || !email || !password) {
       return next(
         new AppError(
-          "Firstname, lastname, email, and password are required",
+          "Username, email, and password are required",
           400
         )
       );
@@ -104,8 +102,8 @@ export const AddUser = async (
 
     // Check if the email is already in use
     const existingUser = await prisma.users.findUnique({
-      where: { email },
-    });
+      where:{email}
+    })
     if (existingUser) {
       return next(new AppError("Email is already in use", 400));
     }
@@ -119,16 +117,14 @@ export const AddUser = async (
     // Create the new user
     const newUser = await prisma.users.create({
       data: {
-        firstname,
-        lastname,
+        username,
         email,
         password: hashedPassword,
         role: userRole,
       },
       select: {
         id: true,
-        firstname: true,
-        lastname: true,
+        username: true,
         email: true,
         role: true,
         createdAt: true,
@@ -163,7 +159,7 @@ export const EditUser = async (
 ) => {
   try {
     const { id } = req.params;
-    const { firstname, lastname, email, role } = req.body;
+    const { username, email, role } = req.body;
 
     const validRoles = ["Admin", "User"];
     if (role && !validRoles.includes(role)) {
@@ -172,11 +168,10 @@ export const EditUser = async (
 
     const updatedUser = await prisma.users.update({
       where: { id: parseInt(id) },
-      data: { firstname, lastname, email, role },
+      data: { username, email, role },
       select: {
         id: true,
-        firstname: true,
-        lastname: true,
+        username: true,
         email: true,
         role: true,
         createdAt: true,

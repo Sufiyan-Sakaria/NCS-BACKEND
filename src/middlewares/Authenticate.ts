@@ -28,8 +28,7 @@ export const authenticate = async (
       where: { id: decoded.userId },
       select: {
         id: true,
-        firstname: true,
-        lastname: true,
+        username: true,
         email: true,
         role: true,
       },

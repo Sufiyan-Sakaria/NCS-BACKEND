@@ -7,7 +7,7 @@ import {
   AddUser,
   LoginUser,
 } from "../controllers/UserController";
-import { validateUserID, validateUserUpdate } from "../middlewares/Validators";
+import { validateUserID, validateUserUpdate } from "../middlewares/validators";
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.get("/:id", validateUserID, GetSingleUserByID);
 router.post("/add", AddUser);
 
 // Update a user by ID
-router.patch("/:id", validateUserID, validateUserUpdate, EditUser);
+router.patch("/update/:id", validateUserID, validateUserUpdate, EditUser);
 
 // Delete a user by ID
 router.delete("/:id", validateUserID, DeleteUser);
