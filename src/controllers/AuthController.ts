@@ -1,11 +1,10 @@
 import { NextFunction, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { CustomRequest } from "../types/UserType";
 import { AppError } from "../utils/AppError";
 import { comparePassword } from "../utils/bcrypt";
 import { generateToken } from "../utils/jwt";
+import prisma from "../config/prisma";
 
-const prisma = new PrismaClient();
 
 export const Login = async (
   req: CustomRequest,

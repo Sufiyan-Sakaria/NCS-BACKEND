@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { PrismaClient } from "@prisma/client";
 import { AppError } from "../utils/AppError";
 import { hashPassword } from "../utils/bcrypt";
 import { CustomRequest } from "../types/UserType";
+import prisma from "../config/prisma";
 
-const prisma = new PrismaClient();
 
 // Get all users
 export const GetAllUser = async (
