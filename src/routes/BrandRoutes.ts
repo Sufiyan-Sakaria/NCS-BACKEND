@@ -19,9 +19,9 @@ router.post("/add", CreateBrand);
 router.delete("/delete", DeleteBrand);
 
 // Update a Brand
-router.patch("/update", UpdateBrand);
+router.patch("/update/:id", UpdateBrand);
 
 // Get Single Brand
-router.get("/id", GetSingleBrand);
+router.get("/:id", GetSingleBrand);
 
 export default router;
