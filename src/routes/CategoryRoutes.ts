@@ -16,10 +16,10 @@ router.get("/all", GetAllCategories);
 router.post("/add", CreateCategory);
 
 // Delete a Category
-router.delete("/delete", DeleteCategory);
+router.delete("/delete/:id", DeleteCategory);
 
 // Update a Category
-router.patch("/update", UpdateCategory);
+router.patch("/update/:id", UpdateCategory);
 
 // Get Single Category
 router.get("/:id", GetSingleCategory);
