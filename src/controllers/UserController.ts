@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError";
 import { hashPassword } from "../utils/bcrypt";
-import { CustomRequest } from "../types/UserType";
 import prisma from "../config/prisma";
-
 
 // Get all users
 export const GetAllUser = async (
@@ -86,10 +84,7 @@ export const AddUser = async (
     // Validate required fields
     if (!username || !email || !password) {
       return next(
-        new AppError(
-          "Username, email, and password are required",
-          400
-        )
+        new AppError("Username, email, and password are required", 400)
       );
     }
 
@@ -101,8 +96,8 @@ export const AddUser = async (
 
     // Check if the email is already in use
     const existingUser = await prisma.users.findUnique({
-      where:{email}
-    })
+      where: { email },
+    });
     if (existingUser) {
       return next(new AppError("Email is already in use", 400));
     }
@@ -220,15 +215,19 @@ export const DeleteUser = async (
 };
 
 export const LoginUser = async (
-  req: CustomRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const user = req.user;
-    if (!user) {
+    const { email, password } = req.body;
+    if (!email || !password) {
       return next(new AppError("Unauthorized access", 401));
     }
+
+    const user = await prisma.users.findUnique({
+      where: { email },
+    });
 
     res.status(200).json({
       status: "success",

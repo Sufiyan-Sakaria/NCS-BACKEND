@@ -37,3 +37,48 @@ model Categories {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model AccountGroup {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  parentId     String?        // For hierarchical structure
+  parent       AccountGroup?  @relation("ParentChild", fields: [parentId], references: [id])
+  children     AccountGroup[] @relation("ParentChild")
+  description  String?
+  type         AccountGroupType // e.g., Assets, Liabilities, Income, Expenses
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  accounts     Account[]       // Relation to individual accounts (ledgers)
+}
+
+model Account {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  groupId      String
+  group        AccountGroup    @relation(fields: [groupId], references: [id])
+  accountType  AccountType    // e.g., Ledger, Bank Account, etc.
+  openingBalance Float        @default(0)
+  currentBalance Float        @default(0)
+  currency      String        @default("PKR")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+enum AccountGroupType {
+  ASSETS
+  LIABILITIES
+  INCOME
+  EXPENSES
+  EQUITY
+}
+
+enum AccountType {
+  LEDGER
+  BANK
+  CASH
+  RECEIVABLES
+  PAYABLES
+  EXPENSE
+  INCOME
+  CAPITAL
+}
