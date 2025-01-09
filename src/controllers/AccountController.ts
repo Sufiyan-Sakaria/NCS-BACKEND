@@ -61,23 +61,30 @@ export const CreateAccount = async (
   try {
     const { name, groupId, accountType, openingBalance } = req.body;
 
-    if (!name) {
-      return next(new AppError("Account name is required", 400));
-    }
+    // Find the parent group
+    const parentGroup = await prisma.accountGroup.findUnique({
+      where: { id: groupId },
+    });
+    if (!parentGroup) return next(new AppError("Account group not found", 404));
+
+    // Find the max sibling code under the group
+    const siblingAccounts = await prisma.account.findMany({
+      where: { groupId },
+    });
+    const siblingCodes = siblingAccounts.map((s) =>
+      parseFloat(s.code.split(".").pop() || "0")
+    );
+    const maxSiblingCode = Math.max(0, ...siblingCodes);
+
+    const code = `${parentGroup.code}.${maxSiblingCode + 1}`;
 
     const newAccount = await prisma.account.create({
-      data: { name, groupId, accountType, openingBalance },
+      data: { name, groupId, accountType, openingBalance, code },
     });
 
-    res.status(201).json({
-      status: "success",
-      message: "Account created successfully",
-      Account: newAccount,
-    });
+    res.status(201).json({ status: "success", account: newAccount });
   } catch (error) {
     next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
   }
 };
 
@@ -86,7 +93,7 @@ export const UpdateAccount = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<any> => {
   try {
     const { id } = req.params;
     const { name, groupId, accountType, currentBalance } = req.body;

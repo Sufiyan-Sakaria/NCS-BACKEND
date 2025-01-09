@@ -5,7 +5,8 @@ import {
   GetAllAccounts,
   GetSingleAccount,
   UpdateAccount,
-} from "../controllers/AccountsController";
+} from "../controllers/AccountController";
+import { UpdateAccountGroup } from "../controllers/AccountGroupController";
 
 const router = express.Router();
 

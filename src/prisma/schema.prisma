@@ -41,28 +41,32 @@ model Categories {
 model AccountGroup {
   id           String         @id @default(cuid())
   name         String         @unique
-  parentId     String?        // For hierarchical structure
+  code         String         @unique // Hierarchical code
+  parentId     String?        // Nullable for root-level groups
   parent       AccountGroup?  @relation("ParentChild", fields: [parentId], references: [id])
   children     AccountGroup[] @relation("ParentChild")
   description  String?
-  type         AccountGroupType // e.g., Assets, Liabilities, Income, Expenses
+  type         AccountGroupType
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   accounts     Account[]       // Relation to individual accounts (ledgers)
 }
 
 model Account {
-  id           String         @id @default(cuid())
-  name         String         @unique
-  groupId      String
-  group        AccountGroup    @relation(fields: [groupId], references: [id])
-  accountType  AccountType    // e.g., Ledger, Bank Account, etc.
+  id            String         @id @default(cuid())
+  name          String         @unique
+  code          String         @unique // Hierarchical code
+  groupId       String
+  group         AccountGroup   @relation(fields: [groupId], references: [id])
+  accountType   AccountType
   openingBalance Float        @default(0)
   currentBalance Float        @default(0)
   currency      String        @default("PKR")
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  ledgers       Ledger[]      @relation("AccountLedger")
 }
+
 
 enum AccountGroupType {
   ASSETS
@@ -81,4 +85,43 @@ enum AccountType {
   EXPENSE
   INCOME
   CAPITAL
+}
+
+model Voucher {
+  id          String       @id @default(cuid())
+  voucherType VoucherType
+  voucherNo   Int
+  date        DateTime     @default(now())
+  description String?
+  ledgerEntries Ledger[]    // Relationship to Ledger entries
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([voucherType, voucherNo]) // Ensure unique voucher number per type
+}
+
+model Ledger {
+  id             String    @id @default(cuid())
+  accountId      String
+  account        Account   @relation("AccountLedger", fields: [accountId], references: [id])
+  voucherId      String
+  voucher        Voucher   @relation(fields: [voucherId], references: [id])
+  transactionType TransactionType
+  amount         Float
+  date           DateTime  @default(now())
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+enum VoucherType {
+  PAYMENT
+  RECEIPT
+  JOURNAL
+  CONTRA
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
 }
