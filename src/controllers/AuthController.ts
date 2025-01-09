@@ -1,13 +1,11 @@
-import { NextFunction, Response } from "express";
-import { CustomRequest } from "../types/UserType";
+import { NextFunction, Request, Response } from "express";
 import { AppError } from "../utils/AppError";
 import { comparePassword } from "../utils/bcrypt";
 import { generateToken } from "../utils/jwt";
 import prisma from "../config/prisma";
 
-
 export const Login = async (
-  req: CustomRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

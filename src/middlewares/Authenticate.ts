@@ -1,13 +1,22 @@
-import { Response, NextFunction } from "express";
-import { CustomRequest } from "../types/UserType";
+import { Response, NextFunction, Request } from "express";
 import { verifyToken } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Extend the Request interface
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    username: string;
+    email: string;
+    role: string;
+  };
+}
+
 export const authenticate = async (
-  req: CustomRequest,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -38,7 +47,7 @@ export const authenticate = async (
       throw new AppError("User not found", 404);
     }
 
-    req.user = user;
+    req.user = user; // Attach user to the request
 
     next();
   } catch (error) {
