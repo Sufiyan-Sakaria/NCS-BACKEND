@@ -3,6 +3,15 @@ import { AppError } from "../utils/AppError";
 import { hashPassword } from "../utils/bcrypt";
 import prisma from "../config/prisma";
 
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    username: string;
+    email: string;
+    role: string;
+  };
+}
+
 // Get all users
 export const GetAllUser = async (
   req: Request,
@@ -215,24 +224,20 @@ export const DeleteUser = async (
 };
 
 export const LoginUser = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
+    const user = req.user;
+    if (!user) {
       return next(new AppError("Unauthorized access", 401));
     }
-
-    const user = await prisma.users.findUnique({
-      where: { email },
-    });
 
     res.status(200).json({
       status: "success",
       message: "User details fetched successfully",
-      user, // Send the user details
+      user,
     });
   } catch (error: any) {
     next(new AppError("Internal server error", 500));
