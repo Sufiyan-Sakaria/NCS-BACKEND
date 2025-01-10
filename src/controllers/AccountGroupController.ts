@@ -129,3 +129,52 @@ export const DeleteAccountGroup = async (
     next(new AppError("Internal server error", 500));
   }
 };
+
+export const CreateAccountGroupsBulk = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const accountGroups = req.body.accountGroups;
+
+  if (!Array.isArray(accountGroups) || accountGroups.length === 0) {
+    return next(new AppError("Invalid or empty data provided", 400));
+  }
+
+  try {
+    // Recursive function to insert parent and its children
+    const insertAccountGroup = async (
+      group: any,
+      parentId: string | null = null
+    ) => {
+      const createdGroup = await prisma.accountGroup.create({
+        data: {
+          name: group.name,
+          code: group.code,
+          description: group.description,
+          type: group.type,
+          parentId: parentId, // Link to parent if exists
+        },
+      });
+
+      if (group.children && group.children.length > 0) {
+        for (const child of group.children) {
+          await insertAccountGroup(child, createdGroup.id); // Recursive call for children
+        }
+      }
+    };
+
+    // Loop through root-level groups and insert recursively
+    for (const group of accountGroups) {
+      await insertAccountGroup(group);
+    }
+
+    res.status(201).json({
+      status: "success",
+      message: "Account Groups created successfully",
+    });
+  } catch (error) {
+    console.error("Error inserting account groups:", error);
+    next(new AppError("Internal server error", 500));
+  }
+};

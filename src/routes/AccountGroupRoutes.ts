@@ -1,6 +1,7 @@
 import express from "express";
 import {
   CreateAccountGroup,
+  CreateAccountGroupsBulk,
   DeleteAccountGroup,
   GetAllAccountGroups,
   GetSingleAccountGroup,
@@ -10,6 +11,8 @@ import {
 const router = express.Router();
 
 router.post("/add", CreateAccountGroup);
+
+router.post("/add/bulk",CreateAccountGroupsBulk)
 
 router.get("/all", GetAllAccountGroups);
 
