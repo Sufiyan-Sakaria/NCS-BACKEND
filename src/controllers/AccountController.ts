@@ -2,57 +2,87 @@ import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
-// Fetch all Accounts
-export const GetAllAccounts = async (
+// Function to generate the next account group code
+const getNextGroupCode = async (parentId: string | null) => {
+  if (!parentId) {
+    const lastTopLevelGroup = await prisma.accountGroup.findFirst({
+      where: { parentId: null },
+      orderBy: { code: "desc" },
+    });
+    return lastTopLevelGroup ? `${parseInt(lastTopLevelGroup.code) + 1}` : "1";
+  }
+
+  const parentGroup = await prisma.accountGroup.findUnique({
+    where: { id: parentId },
+  });
+  if (!parentGroup) throw new Error("Parent group not found");
+
+  const lastChild = await prisma.accountGroup.findFirst({
+    where: { parentId },
+    orderBy: { code: "desc" },
+  });
+
+  const nextNumber = lastChild
+    ? parseInt(lastChild.code.split(".").pop()!) + 1
+    : 1;
+  return `${parentGroup.code}.${nextNumber}`;
+};
+
+// Create Account Group
+export const CreateAccountGroup = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const Accounts = await prisma.account.findMany();
-    if (!Accounts.length) {
-      return next(new AppError("No Accounts found", 404));
+    const { name, parentId, description, type } = req.body;
+
+    if (!name || !type) {
+      return next(new AppError("Name and type are required fields", 400));
     }
 
-    res.status(200).json({
+    const code = await getNextGroupCode(parentId);
+
+    const newGroup = await prisma.accountGroup.create({
+      data: {
+        name,
+        parentId,
+        description,
+        type,
+        code,
+      },
+    });
+
+    res.status(201).json({
       status: "success",
-      message: "Accounts fetched successfully",
-      Accounts,
+      message: "Account group created successfully",
+      data: newGroup,
     });
   } catch (error) {
+    console.error("Error creating account group:", error);
     next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
   }
 };
 
-// Fetch single Account by id
-export const GetSingleAccount = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const Account = await prisma.account.findUnique({
-      where: { id: req.params.id },
-    });
-    if (!Account) {
-      return next(new AppError("Account not found", 404));
-    }
+// Function to generate the next account code
+const getNextAccountCode = async (groupId: string) => {
+  const group = await prisma.accountGroup.findUnique({
+    where: { id: groupId },
+  });
+  if (!group) throw new Error("Account group not found");
 
-    res.status(200).json({
-      status: "success",
-      message: "Account fetched successfully",
-      Account,
-    });
-  } catch (error) {
-    next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
-  }
+  const lastAccount = await prisma.account.findFirst({
+    where: { groupId },
+    orderBy: { code: "desc" },
+  });
+
+  const nextNumber = lastAccount
+    ? parseInt(lastAccount.code.split(".").pop()!) + 1
+    : 1;
+  return `${group.code}.${nextNumber}`;
 };
 
-// Create a new Account
+// Create Account
 export const CreateAccount = async (
   req: Request,
   res: Response,
@@ -61,87 +91,161 @@ export const CreateAccount = async (
   try {
     const { name, groupId, accountType, openingBalance } = req.body;
 
-    // Find the parent group
-    const parentGroup = await prisma.accountGroup.findUnique({
-      where: { id: groupId },
-    });
-    if (!parentGroup) return next(new AppError("Account group not found", 404));
+    if (!name || !groupId || !accountType) {
+      return next(new AppError("Missing required fields", 400));
+    }
 
-    // Find the max sibling code under the group
-    const siblingAccounts = await prisma.account.findMany({
-      where: { groupId },
-    });
-    const siblingCodes = siblingAccounts.map((s) =>
-      parseFloat(s.code.split(".").pop() || "0")
-    );
-    const maxSiblingCode = Math.max(0, ...siblingCodes);
-
-    const code = `${parentGroup.code}.${maxSiblingCode + 1}`;
+    const code = await getNextAccountCode(groupId);
 
     const newAccount = await prisma.account.create({
-      data: { name, groupId, accountType, openingBalance, code },
+      data: {
+        name,
+        code,
+        groupId,
+        accountType,
+        openingBalance: openingBalance || 0,
+        currentBalance: openingBalance || 0,
+      },
     });
 
-    res.status(201).json({ status: "success", account: newAccount });
+    res.status(201).json({
+      status: "success",
+      message: "Account created successfully",
+      data: newAccount,
+    });
+  } catch (error) {
+    console.error("Error creating account:", error);
+    next(new AppError("Internal server error", 500));
+  }
+};
+
+// Get Accounts Hierarchy
+export const GetAccountsHierarchy = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const accountGroups = await prisma.accountGroup.findMany({
+      include: {
+        accounts: true,
+        children: true,
+      },
+    });
+
+    if (!accountGroups.length) {
+      return next(new AppError("No Account Groups found", 404));
+    }
+
+    const buildHierarchy = (
+      groups: any[],
+      parentId: string | null = null
+    ): any[] => {
+      return groups
+        .filter((group) => group.parentId === parentId)
+        .map((group) => ({
+          id: group.id,
+          name: group.name,
+          code: group.code,
+          groupId: group.parentId,
+          accountType: group.type,
+          currentBalance: group.balance,
+          children: [
+            ...buildHierarchy(groups, group.id),
+            ...group.accounts.map((account: any) => ({
+              id: account.id,
+              name: account.name,
+              currentBalance: account.currentBalance,
+              code: account.code,
+              accountType: account.accountType,
+              children: [],
+            })),
+          ],
+        }));
+    };
+
+    const hierarchicalData = buildHierarchy(accountGroups);
+
+    res.status(200).json({
+      status: "success",
+      message: "Accounts Hierarchy fetched successfully",
+      data: hierarchicalData,
+    });
+  } catch (error) {
+    console.error("Error fetching account hierarchy:", error);
+    next(new AppError("Internal server error", 500));
+  }
+};
+
+// Update Account Group
+export const UpdateAccountGroup = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const updatedGroup = await prisma.accountGroup.update({
+      where: { id },
+      data: updates,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Account group updated successfully",
+      data: updatedGroup,
+    });
   } catch (error) {
     next(new AppError("Internal server error", 500));
   }
 };
 
-// Update an existing Account
+// Update Account
 export const UpdateAccount = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<any> => {
+) => {
   try {
     const { id } = req.params;
-    const { name, groupId, accountType, currentBalance } = req.body;
+    const updates = req.body;
 
-    if (!id || typeof id !== "string") {
-      return res.status(400).json({ message: "Invalid account ID format" });
-    }
-
-    // Check if the account exists
-    const existingAccount = await prisma.account.findUnique({ where: { id } });
-    if (!existingAccount) {
-      return res.status(404).json({ message: "Account not found" });
-    }
-
-    if (!name || !groupId || !accountType || !currentBalance) {
-      return next(
-        new AppError(
-          "At least one of name, group, type or balance is required",
-          400
-        )
-      );
-    }
     const updatedAccount = await prisma.account.update({
       where: { id },
-      data: {
-        name: name ?? existingAccount.name,
-        groupId: groupId ?? existingAccount.groupId,
-        accountType: accountType ?? existingAccount.accountType,
-        currentBalance: currentBalance ?? existingAccount.currentBalance,
-      },
+      data: updates,
     });
 
     res.status(200).json({
       status: "success",
       message: "Account updated successfully",
-      Account: updatedAccount,
+      data: updatedAccount,
     });
-  } catch (error: any) {
-    if (error.code === "P2025") {
-      return next(new AppError("Account not found", 404));
-    }
+  } catch (error) {
     next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
   }
 };
 
-// Delete a Account
+// Delete Account Group
+export const DeleteAccountGroup = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    await prisma.accountGroup.delete({ where: { id } });
+    res.status(200).json({
+      status: "success",
+      message: "Account group deleted successfully",
+    });
+  } catch (error) {
+    next(new AppError("Internal server error", 500));
+  }
+};
+
+// Delete Account
 export const DeleteAccount = async (
   req: Request,
   res: Response,
@@ -149,21 +253,11 @@ export const DeleteAccount = async (
 ) => {
   try {
     const { id } = req.params;
-
-    await prisma.account.delete({
-      where: { id },
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "Account deleted successfully",
-    });
-  } catch (error: any) {
-    if (error.code === "P2025") {
-      return next(new AppError("Account not found", 404));
-    }
+    await prisma.account.delete({ where: { id } });
+    res
+      .status(200)
+      .json({ status: "success", message: "Account deleted successfully" });
+  } catch (error) {
     next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
   }
 };

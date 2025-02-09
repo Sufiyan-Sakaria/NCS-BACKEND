@@ -1,23 +1,25 @@
-import express from "express";
+import { Router } from "express";
 import {
+  GetAccountsHierarchy,
+  CreateAccountGroup,
+  UpdateAccountGroup,
+  DeleteAccountGroup,
   CreateAccount,
-  DeleteAccount,
-  GetAllAccounts,
-  GetSingleAccount,
   UpdateAccount,
-} from "../controllers/AccountController";
-import { UpdateAccountGroup } from "../controllers/AccountGroupController";
+  DeleteAccount,
+} from "../controllers/AccountController"; // Adjust path if necessary
 
-const router = express.Router();
+const router = Router();
 
-router.post("/add", CreateAccount);
+// 🏦 Account Groups Routes
+router.get("/groups", GetAccountsHierarchy); // Get hierarchical structure
+router.post("/groups", CreateAccountGroup); // Create new account group
+router.put("/groups/:id", UpdateAccountGroup); // Update existing account group
+router.delete("/groups/:id", DeleteAccountGroup); // Delete account group
 
-router.get("/all", GetAllAccounts);
-
-router.get("/:id", GetSingleAccount);
-
-router.patch("/update/:id", UpdateAccount);
-
-router.delete("/:id", DeleteAccount);
+// 📊 Accounts Routes
+router.post("/accounts", CreateAccount); // Create new account
+router.put("/accounts/:id", UpdateAccount); // Update existing account
+router.delete("/accounts/:id", DeleteAccount); // Delete account
 
 export default router;
