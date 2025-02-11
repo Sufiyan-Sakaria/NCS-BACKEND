@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
+import { VoucherType } from "@prisma/client";
 
 // Fetch all Vouchers
 export const GetAllVouchers = async (
@@ -156,6 +157,44 @@ export const DeleteVoucher = async (
     if (error.code === "P2025") {
       return next(new AppError("Voucher not found", 404));
     }
+    next(new AppError("Internal server error", 500));
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
+export const GetVoucherNo = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { voucherType } = req.query;
+
+    if (!VoucherType || typeof voucherType !== "string") {
+      return next(
+        new AppError(
+          "Voucher type is required and must be a valid enum value",
+          400
+        )
+      );
+    }
+
+    // Cast the string to the Prisma Enum Type
+    const parsedVoucherType = voucherType as VoucherType;
+
+    const lastVoucher = await prisma.voucher.findFirst({
+      where: { voucherType: parsedVoucherType },
+      orderBy: { voucherNo: "desc" },
+    });
+
+    const voucherNo = lastVoucher ? lastVoucher.voucherNo + 1 : 1;
+
+    res.status(200).json({
+      status: "success",
+      voucherNo,
+    });
+  } catch (error) {
     next(new AppError("Internal server error", 500));
   } finally {
     await prisma.$disconnect();

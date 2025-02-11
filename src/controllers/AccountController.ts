@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
+import { AccountType } from "@prisma/client";
 
 // Function to generate the next account group code
 const getNextGroupCode = async (parentId: string | null) => {
@@ -80,6 +81,62 @@ const getNextAccountCode = async (groupId: string) => {
     ? parseInt(lastAccount.code.split(".").pop()!) + 1
     : 1;
   return `${group.code}.${nextNumber}`;
+};
+
+// Fetch all Accounts
+export const GetAllAccounts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const accounts = await prisma.account.findMany();
+    res.status(200).json({
+      status: "success",
+      message: "Accounts fetched successfully",
+      accounts,
+    });
+  } catch (error) {
+    next(new AppError("Internal server error", 500));
+  } finally {
+    await prisma.$disconnect();
+  }
+};
+
+//Fetch Accounts By Type
+export const GetAccountsByType = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { accountType } = req.query;
+
+    if (!AccountType || typeof accountType !== "string") {
+      return next(
+        new AppError(
+          "Account type is required and must be a valid enum value",
+          400
+        )
+      );
+    }
+
+    // Cast the string to the Prisma Enum Type
+    const parsedAccountType = accountType as AccountType;
+
+    const Accounts = await prisma.account.findMany({
+      where: { accountType: parsedAccountType },
+    });
+
+    res.status(200).json({
+      status: "success",
+      Accounts,
+    });
+  } catch (error) {
+    next(new AppError("Internal server error", 500));
+  } finally {
+    await prisma.$disconnect();
+  }
 };
 
 // Create Account
