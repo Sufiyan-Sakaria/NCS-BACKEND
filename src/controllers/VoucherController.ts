@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
-import { VoucherType } from "@prisma/client";
+import { VoucherType, TransactionType } from "@prisma/client";
 
 // Fetch all Vouchers
 export const GetAllVouchers = async (
@@ -85,7 +85,12 @@ export const CreateVoucher = async (
         voucherNo,
         description,
         ledgerEntries: {
-          create: ledgerEntries,
+          create: ledgerEntries.map((entry: any) => ({
+            accountId: entry.accountId,
+            transactionType: entry.transactionType,
+            amount: entry.amount,
+            description: entry.description,
+          })),
         },
       },
       include: { ledgerEntries: true },
@@ -111,7 +116,7 @@ export const UpdateVoucher = async (
 ) => {
   try {
     const { id } = req.params;
-    const { voucherType, description } = req.body;
+    const { voucherType, description, ledgerEntries } = req.body;
 
     const voucher = await prisma.voucher.findUnique({ where: { id } });
     if (!voucher) return next(new AppError("Voucher not found", 404));
@@ -121,7 +126,17 @@ export const UpdateVoucher = async (
       data: {
         voucherType: voucherType ?? voucher.voucherType,
         description: description ?? voucher.description,
+        ledgerEntries: {
+          deleteMany: {}, // Delete existing ledger entries
+          create: ledgerEntries.map((entry: any) => ({
+            accountId: entry.accountId,
+            transactionType: entry.transactionType,
+            amount: entry.amount,
+            description: entry.description,
+          })),
+        },
       },
+      include: { ledgerEntries: true },
     });
 
     res.status(200).json({
@@ -163,6 +178,7 @@ export const DeleteVoucher = async (
   }
 };
 
+// Fetch next voucher number
 export const GetVoucherNo = async (
   req: Request,
   res: Response,
