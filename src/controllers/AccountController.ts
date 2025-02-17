@@ -90,7 +90,9 @@ export const GetAllAccounts = async (
   next: NextFunction
 ) => {
   try {
-    const accounts = await prisma.account.findMany();
+    const accounts = await prisma.account.findMany({
+      orderBy: { code: "asc" },
+    });
     res.status(200).json({
       status: "success",
       message: "Accounts fetched successfully",

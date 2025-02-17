@@ -49,7 +49,7 @@ model AccountGroup {
   type         AccountGroupType
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  accounts     Account[]       // Relation to individual accounts (ledgers)
+  accounts     Account[]      // Relation to individual accounts (ledgers)
 }
 
 model Account {
@@ -64,9 +64,9 @@ model Account {
   currency      String        @default("PKR")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  ledgers       Ledger[]      @relation("AccountLedger")
+  ledgers       Ledger[]      @relation("AccountLedger") // Inverse relation added here
+  voucherAcc    Voucher[]     @relation("VoucherAccount") // Added relation to Voucher
 }
-
 
 enum AccountGroupType {
   ASSETS
@@ -93,6 +93,9 @@ model Voucher {
   voucherNo   Int
   date        DateTime     @default(now())
   description String?
+  totalAmount Float        // Added totalAmount field
+  voucherAccId String      // Added voucherAccId field
+  voucherAcc  Account     @relation("VoucherAccount", fields: [voucherAccId], references: [id]) // Added inverse relation
   ledgerEntries Ledger[]    // Relationship to Ledger entries
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -101,17 +104,19 @@ model Voucher {
 }
 
 model Ledger {
-  id             String    @id @default(cuid())
-  accountId      String
-  account        Account   @relation("AccountLedger", fields: [accountId], references: [id])
-  voucherId      String
-  voucher        Voucher   @relation(fields: [voucherId], references: [id])
-  transactionType TransactionType
-  amount         Float
-  date           DateTime  @default(now())
-  description    String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id               String   @id @default(cuid())
+  date             DateTime
+  accountId        String
+  voucherId        String
+  transactionType  String
+  amount           Float
+  description      String?
+  previousBalance  Float?  // Nullable to handle previous balance
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  account          Account  @relation("AccountLedger", fields: [accountId], references: [id]) // Inverse relation
+  voucher          Voucher  @relation(fields: [voucherId], references: [id])
 }
 
 enum VoucherType {

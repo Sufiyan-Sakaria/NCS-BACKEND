@@ -53,6 +53,7 @@ export const GetSingleLedger = async (
 };
 
 // Create a new Ledger entry
+// Create a new Ledger entry
 export const CreateLedgerEntry = async (
   req: Request,
   res: Response,
@@ -66,6 +67,26 @@ export const CreateLedgerEntry = async (
       return next(new AppError("All fields are required", 400));
     }
 
+    // Fetch current balance of the account
+    const previousBalance = await prisma.account.findFirst({
+      where: { id: accountId },
+      select: { currentBalance: true },
+    });
+
+    if (!previousBalance) {
+      return next(new AppError("Account not found", 404));
+    }
+
+    // Fetch the voucher
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: voucherId },
+    });
+
+    if (!voucher) {
+      return next(new AppError("Voucher not found", 404));
+    }
+
+    // Create the ledger entry
     const newLedger = await prisma.ledger.create({
       data: {
         accountId,
@@ -73,13 +94,22 @@ export const CreateLedgerEntry = async (
         transactionType,
         amount,
         description,
+        previousBalance: previousBalance.currentBalance,
+        date: new Date(), // Add the current date
+        account: {
+          connect: { id: accountId }, // Ensure account relation is properly linked
+        },
+        voucher: {
+          connect: { id: voucherId }, // Ensure voucher relation is properly linked
+        },
       },
     });
 
-    // Update account balance
+    // Update account balance based on the transaction type
     const account = await prisma.account.findUnique({
       where: { id: accountId },
     });
+
     if (account) {
       const updatedBalance =
         transactionType === "CREDIT"
@@ -120,6 +150,7 @@ export const DeleteLedgerEntry = async (
     const account = await prisma.account.findUnique({
       where: { id: ledger.accountId },
     });
+
     if (account) {
       const updatedBalance =
         ledger.transactionType === "CREDIT"
