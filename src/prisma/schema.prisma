@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Represents users in the system with roles for access control.
 model Users {
   id        Int      @id @default(autoincrement())
   username  String   @unique
@@ -17,19 +18,22 @@ model Users {
   updatedAt DateTime @updatedAt
 }
 
+/// Defines the different roles a user can have.
 enum Role {
   User
   Admin
 }
 
+/// Represents brands associated with products.
 model Brands {
   id          Int      @id @default(autoincrement())
   name        String   @unique
-  description String?   
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
+/// Represents product categories.
 model Categories {
   id          Int      @id @default(autoincrement())
   name        String   @unique
@@ -38,36 +42,40 @@ model Categories {
   updatedAt   DateTime @updatedAt
 }
 
+/// Represents hierarchical account groups for financial structuring.
 model AccountGroup {
-  id           String         @id @default(cuid())
-  name         String         @unique
-  code         String         @unique // Hierarchical code
-  parentId     String?        // Nullable for root-level groups
-  parent       AccountGroup?  @relation("ParentChild", fields: [parentId], references: [id])
-  children     AccountGroup[] @relation("ParentChild")
-  description  String?
-  type         AccountGroupType
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  accounts     Account[]      // Relation to individual accounts (ledgers)
+  id          String           @id @default(cuid())
+  name        String           @unique
+  code        String           @unique // Hierarchical code structure
+  parentId    String? // Nullable for root-level groups
+  parent      AccountGroup?    @relation("ParentChild", fields: [parentId], references: [id])
+  children    AccountGroup[]   @relation("ParentChild")
+  description String?
+  type        AccountGroupType
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  accounts    Account[] // Relation to individual accounts (ledgers)
 }
 
+/// Represents financial accounts.
 model Account {
-  id            String         @id @default(cuid())
-  name          String         @unique
-  code          String         @unique // Hierarchical code
-  groupId       String
-  group         AccountGroup   @relation(fields: [groupId], references: [id])
-  accountType   AccountType
+  id             String       @id @default(cuid())
+  name           String       @unique
+  code           String       @unique
+  groupId        String
+  group          AccountGroup @relation(fields: [groupId], references: [id])
+  accountType    AccountType
   openingBalance Float        @default(0)
   currentBalance Float        @default(0)
-  currency      String        @default("PKR")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  ledgers       Ledger[]      @relation("AccountLedger") // Inverse relation added here
-  voucherAcc    Voucher[]     @relation("VoucherAccount") // Added relation to Voucher
+  currency       String       @default("PKR")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  ledgers        Ledger[]     @relation("AccountLedger")
+  returns        Return[]     @relation("AccountReturn")
+  invoices       Invoice[]    @relation("AccountInvoice") // Added missing relation
 }
 
+/// Defines the types of account groups.
 enum AccountGroupType {
   ASSETS
   LIABILITIES
@@ -76,6 +84,7 @@ enum AccountGroupType {
   EQUITY
 }
 
+/// Defines the types of accounts.
 enum AccountType {
   LEDGER
   BANK
@@ -87,38 +96,43 @@ enum AccountType {
   CAPITAL
 }
 
+/// Represents financial vouchers.
 model Voucher {
-  id          String       @id @default(cuid())
-  voucherType VoucherType
-  voucherNo   Int
-  date        DateTime     @default(now())
-  description String?
-  totalAmount Float        // Added totalAmount field
-  voucherAccId String      // Added voucherAccId field
-  voucherAcc  Account     @relation("VoucherAccount", fields: [voucherAccId], references: [id]) // Added inverse relation
-  ledgerEntries Ledger[]    // Relationship to Ledger entries
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String      @id @default(cuid())
+  voucherType   VoucherType
+  voucherNo     Int
+  date          DateTime    @default(now())
+  description   String?
+  totalAmount   Float
+  ledgerEntries Ledger[] // Transactions linked to the voucher
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  @@unique([voucherType, voucherNo]) // Ensure unique voucher number per type
+  @@unique([voucherType, voucherNo]) // Ensures unique voucher number per type
 }
 
+/// Represents ledger entries for transactions.
 model Ledger {
-  id               String   @id @default(cuid())
-  date             DateTime
-  accountId        String
-  voucherId        String
-  transactionType  String
-  amount           Float
-  description      String?
-  previousBalance  Float?  // Nullable to handle previous balance
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  date            DateTime
+  accountId       String
+  voucherId       String?
+  returnId        String?
+  invoiceId       String?
+  transactionType String
+  amount          Float
+  description     String?
+  previousBalance Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  account          Account  @relation("AccountLedger", fields: [accountId], references: [id]) // Inverse relation
-  voucher          Voucher  @relation(fields: [voucherId], references: [id])
+  account Account  @relation("AccountLedger", fields: [accountId], references: [id])
+  voucher Voucher? @relation(fields: [voucherId], references: [id], map: "Ledger_voucherId_fkey")
+  return  Return?  @relation("ReturnLedger", fields: [returnId], references: [id]) // Ensuring bidirectional relation
+  invoice Invoice? @relation("InvoiceLedger", fields: [invoiceId], references: [id]) // Ensuring bidirectional relation
 }
 
+/// Defines the types of vouchers.
 enum VoucherType {
   PAYMENT
   RECEIPT
@@ -126,7 +140,96 @@ enum VoucherType {
   CONTRA
 }
 
+/// Defines transaction types.
 enum TransactionType {
   CREDIT
   DEBIT
+}
+
+/// Represents products available for sale or purchase.
+model Product {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  unit         String        @default("PCS") // Measurement unit (PCS, KG, etc.)
+  price        Float         @default(0) // Selling price per unit
+  costPrice    Float         @default(0) // Cost price per unit
+  thaan        Float         @default(0)
+  quantity     Float         @default(0) // Current stock quantity
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  invoiceItems InvoiceItem[] // Relation to invoice items
+  returnItems  ReturnItem[] // Relation to return items
+}
+
+/// Represents items in an invoice.
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Float
+  unitPrice   Float
+  totalAmount Float
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Represents returned items.
+model ReturnItem {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Float
+  unitPrice   Float
+  totalAmount Float
+  returnId    String
+  return      Return   @relation(fields: [returnId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Represents invoices (sales or purchases).
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  date          DateTime      @default(now())
+  accountId     String
+  account       Account       @relation("AccountInvoice", fields: [accountId], references: [id])
+  totalAmount   Float
+  description   String?
+  type          InvoiceType
+  ledgerEntries Ledger[]      @relation("InvoiceLedger") // Ensuring bidirectional relation
+  invoiceItems  InvoiceItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+/// Represents returns (purchase returns or sales returns).
+model Return {
+  id            String       @id @default(cuid())
+  returnNo      String       @unique
+  date          DateTime     @default(now())
+  accountId     String
+  account       Account      @relation("AccountReturn", fields: [accountId], references: [id])
+  totalAmount   Float
+  description   String?
+  type          ReturnType
+  ledgerEntries Ledger[]     @relation("ReturnLedger") // Ensuring bidirectional relation
+  returnItems   ReturnItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+/// Defines invoice types.
+enum InvoiceType {
+  PURCHASE
+  SALE
+}
+
+/// Defines return types.
+enum ReturnType {
+  PURCHASE_RETURN
+  SALE_RETURN
 }

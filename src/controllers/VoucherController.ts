@@ -2,9 +2,10 @@ import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { VoucherType, TransactionType } from "@prisma/client";
+import { DateTime } from "luxon";
 
 // Fetch all Vouchers
-export const GetAllVouchers = async (
+export const getAllVouchers = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -13,10 +14,11 @@ export const GetAllVouchers = async (
     const vouchers = await prisma.voucher.findMany({
       include: { ledgerEntries: true },
     });
+
     res.status(200).json({
       status: "success",
       message: "Vouchers fetched successfully",
-      vouchers,
+      data: { vouchers },
     });
   } catch (error) {
     next(new AppError("Internal server error", 500));
@@ -26,7 +28,7 @@ export const GetAllVouchers = async (
 };
 
 // Fetch single Voucher by id
-export const GetSingleVoucher = async (
+export const getSingleVoucher = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -38,12 +40,14 @@ export const GetSingleVoucher = async (
       include: { ledgerEntries: true },
     });
 
-    if (!voucher) return next(new AppError("Voucher not found", 404));
+    if (!voucher) {
+      return next(new AppError("Voucher not found", 404));
+    }
 
     res.status(200).json({
       status: "success",
       message: "Voucher fetched successfully",
-      voucher,
+      data: { voucher },
     });
   } catch (error) {
     next(new AppError("Internal server error", 500));
@@ -53,7 +57,7 @@ export const GetSingleVoucher = async (
 };
 
 // Create Voucher
-export const CreateVoucher = async (
+export const createVoucher = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -65,9 +69,10 @@ export const CreateVoucher = async (
       totalAmount,
       voucherAccId,
       ledgerEntries,
-      date,
+      date: inputDate, // Input date in DD-MM-YYYY format
     } = req.body;
 
+    // Validate required fields
     if (
       !voucherType ||
       !ledgerEntries ||
@@ -83,55 +88,58 @@ export const CreateVoucher = async (
       );
     }
 
-    // Generate voucher number based on type
+    // Convert date to ISO format (YYYY-MM-DD) using Luxon
+    const date = DateTime.fromFormat(inputDate, "dd-MM-yyyy").toISO();
+
+    if (!date) {
+      return next(
+        new AppError("Invalid date format. Expected DD-MM-YYYY.", 400)
+      );
+    }
+
+    // Fetch the last voucher number for the given type
     const lastVoucher = await prisma.voucher.findFirst({
       where: { voucherType },
       orderBy: { voucherNo: "desc" },
     });
     const voucherNo = lastVoucher ? lastVoucher.voucherNo + 1 : 1;
 
-    // Create the ledger entries
-    const newLedgerEntries = await Promise.all(
-      ledgerEntries.map(async (entry: any) => {
-        const account = await prisma.account.findUnique({
-          where: { id: entry.accountId },
-        });
-        return {
-          accountId: entry.accountId,
-          transactionType: entry.transactionType,
-          amount: entry.amount,
-          description: entry.description,
-          previousBalance: account ? account.currentBalance : 0,
-          date,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      })
-    );
+    // Create ledger entries for the voucher
+    const newLedgerEntries = [];
 
-    // Add the voucher account entry to the ledger entries
-    const voucherAccount = await prisma.account.findUnique({
-      where: { id: voucherAccId },
-    });
+    for (const entry of ledgerEntries) {
+      const account = await prisma.account.findUnique({
+        where: { id: entry.accountId },
+      });
 
-    const voucherPreviousBalance = voucherAccount
-      ? voucherAccount.currentBalance
-      : 0;
+      if (!account) {
+        throw new AppError(`Account with ID ${entry.accountId} not found`, 404);
+      }
 
-    // Set transaction type based on voucher type
-    const voucherEntryTransactionType =
-      voucherType === "RECEIPT" ? "DEBIT" : "CREDIT";
+      // Fetch the current balance of the account
+      const currentBalance = account.currentBalance;
 
-    newLedgerEntries.push({
-      accountId: voucherAccId,
-      transactionType: voucherEntryTransactionType,
-      amount: totalAmount,
-      description: `Voucher account entry for ${voucherType}`,
-      previousBalance: voucherPreviousBalance,
-      date,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      // Create the ledger entry
+      newLedgerEntries.push({
+        accountId: entry.accountId,
+        transactionType: entry.transactionType,
+        amount: entry.amount,
+        description: entry.description,
+        previousBalance: currentBalance, // Use the current balance
+        date, // Use the converted date
+      });
+
+      // Update the account balance
+      const updatedBalance =
+        entry.transactionType === TransactionType.CREDIT
+          ? currentBalance - entry.amount
+          : currentBalance + entry.amount;
+
+      await prisma.account.update({
+        where: { id: entry.accountId },
+        data: { currentBalance: updatedBalance },
+      });
+    }
 
     // Create the voucher with ledger entries
     const newVoucher = await prisma.voucher.create({
@@ -140,8 +148,7 @@ export const CreateVoucher = async (
         voucherNo,
         description,
         totalAmount,
-        voucherAccId,
-        date,
+        date, // Use the converted date
         ledgerEntries: {
           create: newLedgerEntries,
         },
@@ -149,47 +156,21 @@ export const CreateVoucher = async (
       include: { ledgerEntries: true },
     });
 
-    // Update balances based on voucher type
-    if (voucherType === "RECEIPT") {
-      for (const entry of ledgerEntries) {
-        await prisma.account.update({
-          where: { id: entry.accountId },
-          data: { currentBalance: { decrement: entry.amount } },
-        });
-      }
-      await prisma.account.update({
-        where: { id: voucherAccId },
-        data: { currentBalance: { increment: totalAmount } },
-      });
-    } else {
-      // PAYMENT (CREDIT)
-      for (const entry of ledgerEntries) {
-        await prisma.account.update({
-          where: { id: entry.accountId },
-          data: { currentBalance: { increment: entry.amount } },
-        });
-      }
-      await prisma.account.update({
-        where: { id: voucherAccId },
-        data: { currentBalance: { decrement: totalAmount } },
-      });
-    }
-
     res.status(201).json({
       status: "success",
       message: "Voucher created successfully",
-      voucher: newVoucher,
+      data: { voucher: newVoucher },
     });
   } catch (error) {
     console.error("Error creating voucher:", error);
-    next(new AppError("Internal server error" + error, 500));
+    next(new AppError("Internal server error", 500));
   } finally {
     await prisma.$disconnect();
   }
 };
 
 // Update a Voucher (PATCH)
-export const UpdateVoucher = async (
+export const updateVoucher = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -199,8 +180,11 @@ export const UpdateVoucher = async (
     const { voucherType, description, ledgerEntries } = req.body;
 
     const voucher = await prisma.voucher.findUnique({ where: { id } });
-    if (!voucher) return next(new AppError("Voucher not found", 404));
+    if (!voucher) {
+      return next(new AppError("Voucher not found", 404));
+    }
 
+    // Delete existing ledger entries and create new ones
     const updatedVoucher = await prisma.voucher.update({
       where: { id },
       data: {
@@ -222,7 +206,7 @@ export const UpdateVoucher = async (
     res.status(200).json({
       status: "success",
       message: "Voucher updated successfully",
-      voucher: updatedVoucher,
+      data: { voucher: updatedVoucher },
     });
   } catch (error) {
     next(new AppError("Internal server error", 500));
@@ -232,7 +216,7 @@ export const UpdateVoucher = async (
 };
 
 // Delete a Voucher
-export const DeleteVoucher = async (
+export const deleteVoucher = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -240,9 +224,12 @@ export const DeleteVoucher = async (
   try {
     const { id } = req.params;
 
-    await prisma.voucher.delete({
-      where: { id },
-    });
+    const voucher = await prisma.voucher.findUnique({ where: { id } });
+    if (!voucher) {
+      return next(new AppError("Voucher not found", 404));
+    }
+
+    await prisma.voucher.delete({ where: { id } });
 
     res.status(200).json({
       status: "success",
@@ -259,7 +246,7 @@ export const DeleteVoucher = async (
 };
 
 // Fetch next voucher number
-export const GetVoucherNo = async (
+export const getVoucherNo = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -276,7 +263,6 @@ export const GetVoucherNo = async (
       );
     }
 
-    // Cast the string to the Prisma Enum Type
     const parsedVoucherType = voucherType as VoucherType;
 
     const lastVoucher = await prisma.voucher.findFirst({
@@ -288,7 +274,7 @@ export const GetVoucherNo = async (
 
     res.status(200).json({
       status: "success",
-      voucherNo,
+      data: { voucherNo },
     });
   } catch (error) {
     next(new AppError("Internal server error", 500));

@@ -1,20 +1,20 @@
 import express from "express";
 import {
-  CreateVoucher,
-  DeleteVoucher,
-  GetAllVouchers,
-  GetSingleVoucher,
-  UpdateVoucher,
-  GetVoucherNo,
+  createVoucher,
+  deleteVoucher,
+  getAllVouchers,
+  getSingleVoucher,
+  getVoucherNo,
+  updateVoucher,
 } from "../controllers/VoucherController";
 
 const router = express.Router();
 
-router.post("/add", CreateVoucher);
-router.get("/all", GetAllVouchers);
-router.get("/voucher-no", GetVoucherNo);
-router.get("/:id", GetSingleVoucher);
-router.patch("/update/:id", UpdateVoucher);
-router.delete("/:id", DeleteVoucher);
+router.post("/add", createVoucher);
+router.get("/all", getAllVouchers);
+router.get("/voucher-no", getVoucherNo);
+router.get("/:id", getSingleVoucher);
+router.patch("/update/:id", updateVoucher);
+router.delete("/:id", deleteVoucher);
 
 export default router;

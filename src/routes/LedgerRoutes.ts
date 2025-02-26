@@ -1,19 +1,14 @@
 import express from "express";
-import {
-  CreateLedgerEntry,
-  DeleteLedgerEntry,
-  GetAllLedgers,
-  GetSingleLedger,
-} from "../controllers/LedgerController";
+import { createLedgerEntry, deleteLedgerEntry, getAllLedgers, getSingleLedger } from "../controllers/LedgerController";
 
 const router = express.Router();
 
-router.post("/add", CreateLedgerEntry);
+router.post("/add", createLedgerEntry);
 
-router.get("/all", GetAllLedgers);
+router.get("/all", getAllLedgers);
 
-router.get("/:id", GetSingleLedger);
+router.get("/:id", getSingleLedger);
 
-router.delete("/:id", DeleteLedgerEntry);
+router.delete("/:id", deleteLedgerEntry);
 
 export default router;

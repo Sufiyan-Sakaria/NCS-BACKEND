@@ -154,6 +154,17 @@ export const CreateAccount = async (
       return next(new AppError("Missing required fields", 400));
     }
 
+    // Check if an account with the same name already exists
+    const existingAccount = await prisma.account.findUnique({
+      where: { name },
+    });
+
+    if (existingAccount) {
+      return next(
+        new AppError("An account with this name already exists", 400)
+      );
+    }
+
     const code = await getNextAccountCode(groupId);
 
     const newAccount = await prisma.account.create({
@@ -167,13 +178,38 @@ export const CreateAccount = async (
       },
     });
 
+    console.log("New Account Created:", newAccount);
+
+    let transactionType: string;
+
+    if (newAccount.openingBalance > 0) {
+      transactionType = "DEBIT";
+    } else if (newAccount.openingBalance < 0) {
+      transactionType = "CREDIT";
+    } else {
+      transactionType = "NONE"; // Handle zero balance case
+    }
+
+    // Create the ledger entry without a voucherId
+    const ledgerEntry = await prisma.ledger.create({
+      data: {
+        date: new Date(),
+        accountId: newAccount.id,
+        transactionType,
+        amount: newAccount.openingBalance,
+        description: "Opening Balance",
+      },
+    });
+
+    console.log("Ledger Entry Created:", ledgerEntry);
+
     res.status(201).json({
       status: "success",
       message: "Account created successfully",
       data: newAccount,
     });
   } catch (error) {
-    console.error("Error creating account:", error);
+    console.error("Error creating account or ledger:", error);
     next(new AppError("Internal server error", 500));
   }
 };
@@ -190,6 +226,7 @@ export const GetAccountsHierarchy = async (
         accounts: true,
         children: true,
       },
+      orderBy: { code: "asc" },
     });
 
     if (!accountGroups.length) {
