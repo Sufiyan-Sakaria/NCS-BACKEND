@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 /// Represents users in the system with roles for access control.
@@ -86,7 +87,6 @@ enum AccountGroupType {
 
 /// Defines the types of accounts.
 enum AccountType {
-  LEDGER
   BANK
   CASH
   RECEIVABLES

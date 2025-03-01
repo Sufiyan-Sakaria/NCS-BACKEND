@@ -69,7 +69,6 @@ export const createVoucher = async (
       totalAmount,
       voucherAccId,
       ledgerEntries,
-      date: inputDate, // Input date in DD-MM-YYYY format
     } = req.body;
 
     // Validate required fields
@@ -88,21 +87,15 @@ export const createVoucher = async (
       );
     }
 
-    // Convert date to ISO format (YYYY-MM-DD) using Luxon
-    const date = DateTime.fromFormat(inputDate, "dd-MM-yyyy").toISO();
-
-    if (!date) {
-      return next(
-        new AppError("Invalid date format. Expected DD-MM-YYYY.", 400)
-      );
-    }
-
     // Fetch the last voucher number for the given type
     const lastVoucher = await prisma.voucher.findFirst({
       where: { voucherType },
       orderBy: { voucherNo: "desc" },
     });
     const voucherNo = lastVoucher ? lastVoucher.voucherNo + 1 : 1;
+
+    // Get the current date and time in Asia/Karachi timezone
+    const dateInKarachi = DateTime.now().setZone("Asia/Karachi");
 
     // Create ledger entries for the voucher
     const newLedgerEntries = [];
@@ -126,7 +119,7 @@ export const createVoucher = async (
         amount: entry.amount,
         description: entry.description,
         previousBalance: currentBalance, // Use the current balance
-        date, // Use the converted date
+        date: dateInKarachi.toJSDate(), // Use the Asia/Karachi date
       });
 
       // Update the account balance
@@ -148,7 +141,7 @@ export const createVoucher = async (
         voucherNo,
         description,
         totalAmount,
-        date, // Use the converted date
+        date: dateInKarachi.toJSDate(), // Use the Asia/Karachi date
         ledgerEntries: {
           create: newLedgerEntries,
         },
@@ -168,7 +161,6 @@ export const createVoucher = async (
     await prisma.$disconnect();
   }
 };
-
 // Update a Voucher (PATCH)
 export const updateVoucher = async (
   req: Request,

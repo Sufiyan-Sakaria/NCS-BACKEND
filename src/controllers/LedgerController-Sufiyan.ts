@@ -2,7 +2,63 @@ import { NextFunction, Request, Response } from "express";
 import prisma from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { TransactionType } from "@prisma/client";
-import { DateTime } from "luxon";
+
+export const getLedgerEntriesByAccountAndDateRange = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { accountId, startDate, endDate } = req.query;
+
+    // Validate required query parameters
+    if (!accountId || !startDate || !endDate) {
+      return next(
+        new AppError("Account ID, start date, and end date are required", 400)
+      );
+    }
+
+    // Convert query parameters to correct types
+    const accountIdStr = accountId as string;
+    const start = new Date(startDate as string);
+    const end = new Date(endDate as string);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return next(new AppError("Invalid date format", 400));
+    }
+
+    const ledgerEntries = await prisma.ledger.findMany({
+      where: {
+        accountId: accountIdStr,
+        date: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: { account: true, voucher: true },
+    });
+
+    if (!ledgerEntries.length) {
+      return next(
+        new AppError(
+          "No ledger entries found for the specified account and date range",
+          404
+        )
+      );
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Ledger entries fetched successfully",
+      data: { ledgerEntries },
+    });
+  } catch (error) {
+    console.error("Error fetching ledger entries:", error);
+    next(new AppError("Internal server error", 500));
+  } finally {
+    await prisma.$disconnect();
+  }
+};
 
 // Fetch all Ledger entries
 export const getAllLedgers = async (
@@ -34,9 +90,9 @@ export const getSingleLedger = async (
   next: NextFunction
 ) => {
   try {
-    const { accountId } = req.params;
-    const ledger = await prisma.ledger.findMany({
-      where: { accountId },
+    const { id } = req.params;
+    const ledger = await prisma.ledger.findUnique({
+      where: { id },
       include: { account: true, voucher: true },
     });
 
@@ -50,70 +106,6 @@ export const getSingleLedger = async (
       data: { ledger },
     });
   } catch (error) {
-    next(new AppError("Internal server error", 500));
-  } finally {
-    await prisma.$disconnect();
-  }
-};
-
-// Fetch single Ledger by id in date range
-export const getAccountLedgerInDateRange = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { accountId } = req.params;
-    const inputStartDate = req.query.startDate as string;
-    const inputEndDate = req.query.endDate as string;
-
-    if (!inputStartDate || !inputEndDate) {
-      return next(new AppError("Start and end date are required", 400));
-    }
-
-    // Convert "dd-MM-yyyy" to ISO format and set correct start and end times
-    const startDate = DateTime.fromFormat(inputStartDate, "dd-MM-yyyy", {
-      zone: "utc",
-    })
-      .startOf("day")
-      .toISO();
-    const endDate = DateTime.fromFormat(inputEndDate, "dd-MM-yyyy", {
-      zone: "utc",
-    })
-      .endOf("day")
-      .toISO();
-
-    if (!startDate || !endDate) {
-      return next(new AppError("Invalid date format, use dd-MM-yyyy", 400));
-    }
-
-    const account = await prisma.account.findUnique({
-      where: { id: accountId },
-    });
-
-    if (!account) {
-      return next(new AppError("Account not found", 404));
-    }
-
-    const ledgers = await prisma.ledger.findMany({
-      where: {
-        accountId,
-        date: {
-          gte: new Date(startDate), // Ensure it's a proper Date object
-          lte: new Date(endDate),
-        },
-      },
-      include: { account: true, voucher: true },
-      orderBy: { date: "asc" },
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "Ledger entries fetched successfully",
-      data: { ledgers },
-    });
-  } catch (error) {
-    console.error(error);
     next(new AppError("Internal server error", 500));
   } finally {
     await prisma.$disconnect();

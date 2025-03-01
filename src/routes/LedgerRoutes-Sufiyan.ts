@@ -2,21 +2,26 @@ import express from "express";
 import {
   createLedgerEntry,
   deleteLedgerEntry,
-  getAccountLedgerInDateRange,
   getAllLedgers,
   getSingleLedger,
+  getLedgerEntriesByAccountAndDateRange,
 } from "../controllers/LedgerController";
 
 const router = express.Router();
 
+// Create a new Ledger entry
 router.post("/add", createLedgerEntry);
 
+// Fetch all Ledger entries
 router.get("/all", getAllLedgers);
 
-router.get("/date/:accountId", getAccountLedgerInDateRange);
+// Fetch ledger entries for a single account within a date range
+router.get("/account-entries", getLedgerEntriesByAccountAndDateRange);
 
-router.get("/:accountId", getSingleLedger);
+// Fetch a single Ledger entry by ID
+router.get("/:id", getSingleLedger);
 
+// Delete a Ledger entry by ID
 router.delete("/:id", deleteLedgerEntry);
 
 export default router;
